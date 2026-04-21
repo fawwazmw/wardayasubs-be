@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import crypto from 'crypto';
 import prisma from '../lib/prisma';
 import { hashPassword, comparePassword, generateToken } from '../utils/auth';
+import { sendPasswordResetEmail, sendVerificationEmail } from '../utils/email';
 import { z } from 'zod';
 
 const registerSchema = z.object({
@@ -43,7 +44,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // Hash password
     const hashedPassword = await hashPassword(validatedData.password);
 
-    // Create user
+    // Create user (emailVerified defaults to false)
     const user = await prisma.user.create({
       data: {
         email: validatedData.email,
@@ -60,15 +61,20 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       },
     });
 
-    // Generate token
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
+    // Generate verification token
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await prisma.emailVerification.create({
+      data: { token: verifyToken, userId: user.id, expiresAt },
     });
 
+    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verifyToken}`;
+    await sendVerificationEmail(validatedData.email, verifyUrl);
+
     res.status(201).json({
-      user,
-      token,
+      message: 'Account created. Please check your email to verify your account.',
+      verifyToken: process.env.NODE_ENV === 'development' ? verifyToken : undefined,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -102,6 +108,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     if (!isValidPassword) {
       res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    // Check email verification
+    if (!user.emailVerified) {
+      res.status(403).json({ error: 'Please verify your email before logging in', code: 'EMAIL_NOT_VERIFIED' });
       return;
     }
 
@@ -235,11 +247,12 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
       data: { token, userId: user.id, expiresAt },
     });
 
-    // In production, send email with reset link. For dev, log to console.
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
-    console.log(`\n🔑 Password reset for ${email}:\n   ${resetUrl}\n`);
 
-    res.json({ message: 'If an account with that email exists, a reset link has been generated.', resetToken: process.env.NODE_ENV === 'development' ? token : undefined });
+    // Send email (falls back to console.log if SMTP not configured)
+    await sendPasswordResetEmail(email, resetUrl);
+
+    res.json({ message: 'If an account with that email exists, a reset link has been sent.', resetToken: process.env.NODE_ENV === 'development' ? token : undefined });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Validation error', details: error.errors });
@@ -288,6 +301,84 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
       return;
     }
     console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// POST /api/auth/verify-email
+export const verifyEmail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = z.object({ token: z.string().min(1) }).parse(req.body);
+
+    const record = await prisma.emailVerification.findUnique({
+      where: { token },
+    });
+
+    if (!record || record.used || record.expiresAt < new Date()) {
+      res.status(400).json({ error: 'Invalid or expired verification link' });
+      return;
+    }
+
+    // Mark user as verified
+    await prisma.user.update({
+      where: { id: record.userId },
+      data: { emailVerified: true },
+    });
+
+    // Mark token as used
+    await prisma.emailVerification.update({
+      where: { id: record.id },
+      data: { used: true },
+    });
+
+    res.json({ message: 'Email verified successfully. You can now log in.' });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Validation error', details: error.errors });
+      return;
+    }
+    console.error('Verify email error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// POST /api/auth/resend-verification
+export const resendVerification = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = z.object({ email: z.string().email() }).parse(req.body);
+
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    // Always return success to prevent enumeration
+    if (!user || user.emailVerified) {
+      res.json({ message: 'If the account exists and is unverified, a new verification email has been sent.' });
+      return;
+    }
+
+    // Invalidate old tokens
+    await prisma.emailVerification.updateMany({
+      where: { userId: user.id, used: false },
+      data: { used: true },
+    });
+
+    // Create new token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await prisma.emailVerification.create({
+      data: { token, userId: user.id, expiresAt },
+    });
+
+    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
+    await sendVerificationEmail(email, verifyUrl);
+
+    res.json({ message: 'If the account exists and is unverified, a new verification email has been sent.' });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Validation error', details: error.errors });
+      return;
+    }
+    console.error('Resend verification error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

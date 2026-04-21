@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import prisma from '../lib/prisma';
+import { sendRenewalReminderEmail } from '../utils/email';
 
 function addBillingCycle(date: Date, cycle: string): Date {
   const next = new Date(date);
@@ -57,16 +58,22 @@ async function advanceBillingDates() {
   }
 }
 
-// Creates reminder notifications for subscriptions billing within reminderDays
+// Creates reminder notifications + sends email for subscriptions billing within reminderDays
 async function generateReminders() {
   try {
     const now = new Date();
 
-    // Find active subscriptions where nextBillingDate is within reminderDays
     const subscriptions = await prisma.subscription.findMany({
       where: { isActive: true },
       include: { user: true },
     });
+
+    // Group upcoming reminders by user
+    const userReminders: Record<string, {
+      email: string;
+      name: string;
+      items: { name: string; amount: number; currency: string; daysUntil: number }[];
+    }> = {};
 
     let created = 0;
     for (const sub of subscriptions) {
@@ -75,7 +82,7 @@ async function generateReminders() {
       );
 
       if (daysUntil > 0 && daysUntil <= sub.reminderDays) {
-        // Check if we already sent a reminder for this billing date
+        // Check if we already sent a reminder for this subscription today
         const existing = await prisma.notification.findFirst({
           where: {
             userId: sub.userId,
@@ -95,12 +102,37 @@ async function generateReminders() {
             },
           });
           created++;
+
+          // Collect for email
+          if (!userReminders[sub.userId]) {
+            userReminders[sub.userId] = {
+              email: sub.user.email,
+              name: sub.user.name,
+              items: [],
+            };
+          }
+          userReminders[sub.userId].items.push({
+            name: sub.name,
+            amount: sub.amount,
+            currency: sub.currency,
+            daysUntil,
+          });
         }
       }
     }
 
+    // Send one email per user with all their reminders
+    for (const userId of Object.keys(userReminders)) {
+      const { email, name, items } = userReminders[userId];
+      try {
+        await sendRenewalReminderEmail(email, name, items);
+      } catch (err) {
+        console.error(`Failed to send reminder email to ${email}:`, err);
+      }
+    }
+
     if (created > 0) {
-      console.log(`🔔 Created ${created} renewal reminder(s)`);
+      console.log(`🔔 Created ${created} renewal reminder(s), emailed ${Object.keys(userReminders).length} user(s)`);
     }
   } catch (error) {
     console.error('Scheduler error (reminders):', error);
