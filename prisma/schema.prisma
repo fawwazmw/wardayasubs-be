@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  name          String
+  currency      String         @default("USD") // User's preferred currency
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+  categories    Category[]
+}
+
+model Category {
+  id            String         @id @default(uuid())
+  name          String
+  color         String?        // Hex color for UI
+  icon          String?        // Icon identifier
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Subscription {
+  id              String    @id @default(uuid())
+  name            String
+  description     String?
+  amount          Float
+  currency        String    @default("USD")
+  billingCycle    String    // monthly, yearly, weekly, quarterly
+  startDate       DateTime  @default(now())
+  nextBillingDate DateTime
+  categoryId      String?
+  category        Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  website         String?
+  logo            String?
+  isActive        Boolean   @default(true)
+  reminderDays    Int       @default(3) // Days before billing to send reminder
+  notes           String?
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments        Payment[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([nextBillingDate])
+  @@index([categoryId])
+  @@index([isActive])
+}
+
+model Payment {
+  id             String       @id @default(uuid())
+  amount         Float
+  currency       String
+  paidAt         DateTime     @default(now())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([subscriptionId])
+  @@index([paidAt])
+}
