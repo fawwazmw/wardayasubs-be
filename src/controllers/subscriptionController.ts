@@ -1,9 +1,7 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
 
 const createSubscriptionSchema = z.object({
   name: z.string().min(1),
@@ -20,7 +18,9 @@ const createSubscriptionSchema = z.object({
   notes: z.string().optional(),
 });
 
-const updateSubscriptionSchema = createSubscriptionSchema.partial();
+const updateSubscriptionSchema = createSubscriptionSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
 
 export const createSubscription = async (
   req: AuthRequest,

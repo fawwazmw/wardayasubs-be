@@ -1,9 +1,12 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { startScheduler } from './jobs/scheduler';
 import authRoutes from './routes/auth';
 import subscriptionRoutes from './routes/subscriptions';
 import categoryRoutes from './routes/categories';
+import paymentRoutes from './routes/payments';
+import notificationRoutes from './routes/notifications';
 
 // Load environment variables
 dotenv.config();
@@ -32,6 +35,8 @@ app.get('/health', (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -42,6 +47,7 @@ app.use((req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV}`);
+  startScheduler();
 });
 
 export default app;

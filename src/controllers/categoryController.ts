@@ -1,9 +1,7 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
 
 const createCategorySchema = z.object({
   name: z.string().min(1).max(50),
