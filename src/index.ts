@@ -7,6 +7,7 @@ import subscriptionRoutes from './routes/subscriptions';
 import categoryRoutes from './routes/categories';
 import paymentRoutes from './routes/payments';
 import notificationRoutes from './routes/notifications';
+import adminRoutes from './routes/admin';
 
 // Load environment variables
 dotenv.config();
@@ -37,6 +38,7 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

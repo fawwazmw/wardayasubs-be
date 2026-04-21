@@ -131,6 +131,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         email: user.email,
         name: user.name,
         currency: user.currency,
+        isAdmin: user.isAdmin,
         createdAt: user.createdAt,
       },
       token,
