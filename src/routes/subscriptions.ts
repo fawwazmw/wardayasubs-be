@@ -5,6 +5,8 @@ import {
   getSubscription,
   updateSubscription,
   deleteSubscription,
+  bulkDeleteSubscriptions,
+  importSubscriptions,
   getSubscriptionStats,
   getUpcomingRenewals,
 } from '../controllers/subscriptionController';
@@ -16,6 +18,8 @@ const router = Router();
 router.use(authenticate);
 
 router.post('/', createSubscription);
+router.post('/bulk-delete', bulkDeleteSubscriptions);
+router.post('/import', importSubscriptions);
 router.get('/', getSubscriptions);
 router.get('/stats', getSubscriptionStats);
 router.get('/upcoming', getUpcomingRenewals);

@@ -17,6 +17,8 @@ const updateProfileSchema = z.object({
   currency: z.string().optional(),
   currentPassword: z.string().optional(),
   newPassword: z.string().min(8).optional(),
+  notifyRenewalReminders: z.boolean().optional(),
+  notifyEmailReminders: z.boolean().optional(),
 }).refine((data) => {
   if (data.newPassword && !data.currentPassword) return false;
   return true;
@@ -154,6 +156,8 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
         email: true,
         name: true,
         currency: true,
+        notifyRenewalReminders: true,
+        notifyEmailReminders: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -195,6 +199,8 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     if (validatedData.name) updateData.name = validatedData.name;
     if (validatedData.currency) updateData.currency = validatedData.currency;
     if (validatedData.newPassword) updateData.password = await hashPassword(validatedData.newPassword);
+    if (validatedData.notifyRenewalReminders !== undefined) updateData.notifyRenewalReminders = validatedData.notifyRenewalReminders;
+    if (validatedData.notifyEmailReminders !== undefined) updateData.notifyEmailReminders = validatedData.notifyEmailReminders;
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -204,6 +210,8 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         email: true,
         name: true,
         currency: true,
+        notifyRenewalReminders: true,
+        notifyEmailReminders: true,
         createdAt: true,
         updatedAt: true,
       },

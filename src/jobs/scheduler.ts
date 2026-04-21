@@ -82,6 +82,9 @@ async function generateReminders() {
       );
 
       if (daysUntil > 0 && daysUntil <= sub.reminderDays) {
+        // Check if user wants in-app reminders
+        if (!sub.user.notifyRenewalReminders) continue;
+        
         // Check if we already sent a reminder for this subscription today
         const existing = await prisma.notification.findFirst({
           where: {
@@ -124,6 +127,15 @@ async function generateReminders() {
     // Send one email per user with all their reminders
     for (const userId of Object.keys(userReminders)) {
       const { email, name, items } = userReminders[userId];
+      
+      // Check if user wants email reminders
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { notifyEmailReminders: true },
+      });
+      
+      if (!user?.notifyEmailReminders) continue;
+      
       try {
         await sendRenewalReminderEmail(email, name, items);
       } catch (err) {
