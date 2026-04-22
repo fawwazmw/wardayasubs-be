@@ -1,9 +1,7 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
 
 const createSubscriptionSchema = z.object({
   name: z.string().min(1),
@@ -20,7 +18,13 @@ const createSubscriptionSchema = z.object({
   notes: z.string().optional(),
 });
 
-const updateSubscriptionSchema = createSubscriptionSchema.partial();
+const updateSubscriptionSchema = createSubscriptionSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+
+const bulkDeleteSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+});
 
 export const createSubscription = async (
   req: AuthRequest,
@@ -375,6 +379,312 @@ export const getUpcomingRenewals = async (
     res.json(upcomingWithDays);
   } catch (error) {
     console.error('Get upcoming renewals error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const bulkDeleteSubscriptions = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const validatedData = bulkDeleteSchema.parse(req.body);
+
+    // Verify all subscriptions belong to user
+    const subscriptions = await prisma.subscription.findMany({
+      where: {
+        id: { in: validatedData.ids },
+        userId,
+      },
+      select: { id: true },
+    });
+
+    if (subscriptions.length !== validatedData.ids.length) {
+      res.status(403).json({ error: 'Some subscriptions do not belong to you' });
+      return;
+    }
+
+    // Delete all subscriptions
+    const result = await prisma.subscription.deleteMany({
+      where: {
+        id: { in: validatedData.ids },
+        userId,
+      },
+    });
+
+    res.json({ message: `Deleted ${result.count} subscription(s)`, count: result.count });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Validation error', details: error.errors });
+      return;
+    }
+    console.error('Bulk delete subscriptions error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const importSubscriptions = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { subscriptions } = z.object({
+      subscriptions: z.array(z.object({
+        name: z.string().min(1),
+        amount: z.number().positive(),
+        currency: z.string().default('USD'),
+        billingCycle: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']),
+        nextBillingDate: z.string(),
+        categoryName: z.string().optional(),
+        isActive: z.boolean().default(true),
+        notes: z.string().optional(),
+      })),
+    }).parse(req.body);
+
+    const imported: any[] = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < subscriptions.length; i++) {
+      const sub = subscriptions[i];
+      try {
+        // Find or create category if provided
+        let categoryId: string | undefined;
+        if (sub.categoryName) {
+          let category = await prisma.category.findFirst({
+            where: { userId, name: sub.categoryName },
+          });
+          
+          if (!category) {
+            category = await prisma.category.create({
+              data: { userId, name: sub.categoryName },
+            });
+          }
+          categoryId = category.id;
+        }
+
+        const created = await prisma.subscription.create({
+          data: {
+            userId,
+            name: sub.name,
+            amount: sub.amount,
+            currency: sub.currency,
+            billingCycle: sub.billingCycle,
+            nextBillingDate: new Date(sub.nextBillingDate),
+            categoryId,
+            isActive: sub.isActive,
+            notes: sub.notes,
+          },
+        });
+        imported.push(created);
+      } catch (err: any) {
+        errors.push(`Row ${i + 1} (${sub.name}): ${err.message}`);
+      }
+    }
+
+    res.json({
+      message: `Imported ${imported.length} subscription(s)`,
+      imported: imported.length,
+      failed: errors.length,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Validation error', details: error.errors });
+      return;
+    }
+    console.error('Import subscriptions error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const exportAllData = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Get all user data
+    const [subscriptions, categories, payments] = await Promise.all([
+      prisma.subscription.findMany({
+        where: { userId },
+        include: { category: true },
+      }),
+      prisma.category.findMany({
+        where: { userId },
+      }),
+      prisma.payment.findMany({
+        where: {
+          subscription: { userId },
+        },
+        include: {
+          subscription: { select: { name: true } },
+        },
+      }),
+    ]);
+
+    const backup = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      subscriptions: subscriptions.map(s => ({
+        name: s.name,
+        description: s.description,
+        amount: s.amount,
+        currency: s.currency,
+        billingCycle: s.billingCycle,
+        startDate: s.startDate,
+        nextBillingDate: s.nextBillingDate,
+        categoryName: s.category?.name,
+        website: s.website,
+        logo: s.logo,
+        isActive: s.isActive,
+        reminderDays: s.reminderDays,
+        notes: s.notes,
+      })),
+      categories: categories.map(c => ({
+        name: c.name,
+        color: c.color,
+        icon: c.icon,
+      })),
+      payments: payments.map(p => ({
+        subscriptionName: p.subscription.name,
+        amount: p.amount,
+        currency: p.currency,
+        paidAt: p.paidAt,
+      })),
+    };
+
+    res.json(backup);
+  } catch (error) {
+    console.error('Export all data error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const importAllData = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { subscriptions, categories } = z.object({
+      version: z.string().optional(),
+      exportedAt: z.string().optional(),
+      subscriptions: z.array(z.object({
+        name: z.string(),
+        description: z.string().optional(),
+        amount: z.number(),
+        currency: z.string(),
+        billingCycle: z.string(),
+        startDate: z.string().optional(),
+        nextBillingDate: z.string(),
+        categoryName: z.string().optional(),
+        website: z.string().optional(),
+        logo: z.string().optional(),
+        isActive: z.boolean().optional(),
+        reminderDays: z.number().optional(),
+        notes: z.string().optional(),
+      })),
+      categories: z.array(z.object({
+        name: z.string(),
+        color: z.string().optional(),
+        icon: z.string().optional(),
+      })).optional(),
+      payments: z.array(z.any()).optional(),
+    }).parse(req.body);
+
+    let importedSubs = 0;
+    let importedCats = 0;
+    const errors: string[] = [];
+
+    // Import categories first
+    const categoryMap: Record<string, string> = {};
+    if (categories) {
+      for (const cat of categories) {
+        try {
+          let category = await prisma.category.findFirst({
+            where: { userId, name: cat.name },
+          });
+          
+          if (!category) {
+            category = await prisma.category.create({
+              data: {
+                userId,
+                name: cat.name,
+                color: cat.color,
+                icon: cat.icon,
+              },
+            });
+            importedCats++;
+          }
+          categoryMap[cat.name] = category.id;
+        } catch (err: any) {
+          errors.push(`Category ${cat.name}: ${err.message}`);
+        }
+      }
+    }
+
+    // Import subscriptions
+    for (const sub of subscriptions) {
+      try {
+        const categoryId = sub.categoryName ? categoryMap[sub.categoryName] : undefined;
+        
+        await prisma.subscription.create({
+          data: {
+            userId,
+            name: sub.name,
+            description: sub.description,
+            amount: sub.amount,
+            currency: sub.currency,
+            billingCycle: sub.billingCycle,
+            startDate: sub.startDate ? new Date(sub.startDate) : new Date(),
+            nextBillingDate: new Date(sub.nextBillingDate),
+            categoryId,
+            website: sub.website,
+            logo: sub.logo,
+            isActive: sub.isActive ?? true,
+            reminderDays: sub.reminderDays ?? 3,
+            notes: sub.notes,
+          },
+        });
+        importedSubs++;
+      } catch (err: any) {
+        errors.push(`Subscription ${sub.name}: ${err.message}`);
+      }
+    }
+
+    res.json({
+      message: `Imported ${importedSubs} subscription(s) and ${importedCats} categor${importedCats === 1 ? 'y' : 'ies'}`,
+      imported: { subscriptions: importedSubs, categories: importedCats },
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Validation error', details: error.errors });
+      return;
+    }
+    console.error('Import all data error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

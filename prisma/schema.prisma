@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -8,15 +9,87 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  password      String
-  name          String
-  currency      String         @default("USD") // User's preferred currency
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  subscriptions Subscription[]
-  categories    Category[]
+  id                      String               @id @default(uuid())
+  email                   String               @unique
+  password                String?
+  name                    String
+  currency                String               @default("USD")
+  emailVerified           Boolean              @default(false)
+  isAdmin                 Boolean              @default(false)
+  googleId                String?              @unique
+  avatar                  String?
+  notifyRenewalReminders  Boolean              @default(true)
+  notifyEmailReminders    Boolean              @default(true)
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  subscriptions           Subscription[]
+  categories              Category[]
+  passwordResets          PasswordReset[]
+  notifications           Notification[]
+  emailVerifications      EmailVerification[]
+  chatSessions            ChatSession[]
+}
+
+model ChatSession {
+  id        String        @id @default(uuid())
+  title     String        @default("New Chat")
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  role      String      // user, assistant
+  content   String
+  action    String?     // add_subscription, update_subscription, query, chat, clarify
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId])
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  type      String   @default("reminder") // reminder, info, warning
+  read      Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
 }
 
 model Category {
