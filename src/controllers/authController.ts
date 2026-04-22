@@ -413,22 +413,21 @@ export const resendVerification = async (req: Request, res: Response): Promise<v
 export const googleCallback = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     
     if (!user) {
-      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=auth_failed`);
+      res.redirect(`${frontendUrl}/login?error=auth_failed`);
       return;
     }
 
-    // Generate JWT token (user already has { userId, email } shape from passport)
     const token = generateToken({
       userId: user.userId,
       email: user.email,
     });
 
-    // Redirect to frontend with token
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback?token=${token}`);
+    res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
   } catch (error) {
-    console.error('Google callback error:', error);
+    console.error('[OAuth] Google callback error:', error);
     res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=server_error`);
   }
 };

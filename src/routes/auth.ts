@@ -239,7 +239,13 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
  *       302:
  *         description: Redirects to frontend with token or error query param
  */
-router.get('/google/callback', passport.authenticate('google', { session: false, failureRedirect: '/login' }) as any, googleCallback);
+router.get('/google/callback', (req, res, next) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  passport.authenticate('google', {
+    session: false,
+    failureRedirect: `${frontendUrl}/login?error=auth_failed`,
+  })(req, res, next);
+}, googleCallback);
 
 /**
  * @swagger
