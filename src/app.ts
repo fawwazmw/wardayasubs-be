@@ -14,6 +14,7 @@ import categoryRoutes from './routes/categories';
 import paymentRoutes from './routes/payments';
 import notificationRoutes from './routes/notifications';
 import adminRoutes from './routes/admin';
+import chatRoutes from './routes/chat';
 
 // Load environment variables
 dotenv.config();
@@ -94,6 +95,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/chat', chatRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

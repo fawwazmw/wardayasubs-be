@@ -26,6 +26,31 @@ model User {
   passwordResets          PasswordReset[]
   notifications           Notification[]
   emailVerifications      EmailVerification[]
+  chatSessions            ChatSession[]
+}
+
+model ChatSession {
+  id        String        @id @default(uuid())
+  title     String        @default("New Chat")
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  role      String      // user, assistant
+  content   String
+  action    String?     // add_subscription, update_subscription, query, chat, clarify
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId])
 }
 
 model EmailVerification {

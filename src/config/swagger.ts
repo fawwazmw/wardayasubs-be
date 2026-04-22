@@ -124,9 +124,10 @@ const options: swaggerJsdoc.Options = {
       { name: 'Payments', description: 'Payment tracking' },
       { name: 'Notifications', description: 'User notifications' },
       { name: 'Admin', description: 'Admin panel (requires admin role)' },
+      { name: 'Chat', description: 'AI assistant (powered by Google Gemini)' },
     ],
   },
-  apis: ['./src/routes/*.ts', './src/index.ts'],
+  apis: ['./src/routes/*.ts', './src/app.ts'],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
