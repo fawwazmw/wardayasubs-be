@@ -2,6 +2,7 @@ import { Router } from 'express';
 import passport from 'passport';
 import { register, login, getProfile, updateProfile, forgotPassword, resetPassword, verifyEmail, resendVerification, googleCallback } from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
+import { loginLimiter, authLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -47,7 +48,7 @@ const router = Router();
  *       400:
  *         description: Validation error or user already exists
  */
-router.post('/register', register);
+router.post('/register', authLimiter, register);
 
 /**
  * @swagger
@@ -99,7 +100,7 @@ router.post('/register', register);
  *       403:
  *         description: Email not verified (code EMAIL_NOT_VERIFIED)
  */
-router.post('/login', login);
+router.post('/login', loginLimiter, login);
 
 /**
  * @swagger
@@ -146,7 +147,7 @@ router.post('/verify-email', verifyEmail);
  *       200:
  *         description: Verification email sent (always returns success to prevent enumeration)
  */
-router.post('/resend-verification', resendVerification);
+router.post('/resend-verification', authLimiter, resendVerification);
 
 /**
  * @swagger
@@ -179,7 +180,7 @@ router.post('/resend-verification', resendVerification);
  *                   type: string
  *                   description: Only returned in development mode
  */
-router.post('/forgot-password', forgotPassword);
+router.post('/forgot-password', authLimiter, forgotPassword);
 
 /**
  * @swagger
@@ -206,7 +207,7 @@ router.post('/forgot-password', forgotPassword);
  *       400:
  *         description: Invalid, expired, or already used token
  */
-router.post('/reset-password', resetPassword);
+router.post('/reset-password', authLimiter, resetPassword);
 
 /**
  * @swagger
