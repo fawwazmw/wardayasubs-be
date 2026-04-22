@@ -102,6 +102,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Check if user has a password (not OAuth-only user)
+    if (!user.password) {
+      res.status(401).json({ error: 'Please sign in with Google' });
+      return;
+    }
+
     // Verify password
     const isValidPassword = await comparePassword(
       validatedData.password,
@@ -157,6 +163,9 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
         email: true,
         name: true,
         currency: true,
+        isAdmin: true,
+        googleId: true,
+        avatar: true,
         notifyRenewalReminders: true,
         notifyEmailReminders: true,
         createdAt: true,
@@ -189,6 +198,11 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         return;
       }
 
+      if (!user.password) {
+        res.status(400).json({ error: 'Cannot set password for OAuth-only accounts' });
+        return;
+      }
+
       const isValid = await comparePassword(validatedData.currentPassword!, user.password);
       if (!isValid) {
         res.status(400).json({ error: 'Current password is incorrect' });
@@ -211,6 +225,9 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         email: true,
         name: true,
         currency: true,
+        isAdmin: true,
+        googleId: true,
+        avatar: true,
         notifyRenewalReminders: true,
         notifyEmailReminders: true,
         createdAt: true,
@@ -389,5 +406,29 @@ export const resendVerification = async (req: Request, res: Response): Promise<v
     }
     console.error('Resend verification error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Google OAuth callback handler
+export const googleCallback = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user;
+    
+    if (!user) {
+      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=auth_failed`);
+      return;
+    }
+
+    // Generate JWT token (user already has { userId, email } shape from passport)
+    const token = generateToken({
+      userId: user.userId,
+      email: user.email,
+    });
+
+    // Redirect to frontend with token
+    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback?token=${token}`);
+  } catch (error) {
+    console.error('Google callback error:', error);
+    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=server_error`);
   }
 };

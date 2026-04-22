@@ -6,10 +6,10 @@ const router = Router();
 
 // All routes require authentication and admin role
 router.use(authenticate);
-router.use(requireAdmin);
+router.use(requireAdmin as any);
 
-router.get('/stats', getSystemStats);
-router.get('/users', getAllUsers);
-router.delete('/users/:id', deleteUser);
+router.get('/stats', getSystemStats as any);
+router.get('/users', getAllUsers as any);
+router.delete('/users/:id', deleteUser as any);
 
 export default router;

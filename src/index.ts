@@ -1,7 +1,9 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import passport from 'passport';
 import { startScheduler } from './jobs/scheduler';
+import { configurePassport } from './config/passport';
 import authRoutes from './routes/auth';
 import subscriptionRoutes from './routes/subscriptions';
 import categoryRoutes from './routes/categories';
@@ -22,6 +24,10 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(passport.initialize());
+
+// Configure Passport
+configurePassport();
 
 // Health check route
 app.get('/health', (req: Request, res: Response) => {

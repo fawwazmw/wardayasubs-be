@@ -10,11 +10,13 @@ datasource db {
 model User {
   id                      String               @id @default(uuid())
   email                   String               @unique
-  password                String
+  password                String?
   name                    String
   currency                String               @default("USD")
   emailVerified           Boolean              @default(false)
   isAdmin                 Boolean              @default(false)
+  googleId                String?              @unique
+  avatar                  String?
   notifyRenewalReminders  Boolean              @default(true)
   notifyEmailReminders    Boolean              @default(true)
   createdAt               DateTime             @default(now())
