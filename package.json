@@ -4,19 +4,22 @@
   "description": "Backend API for Wardaya Subs - Subscription Tracker",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "NODE_ENV=development tsx watch src/index.ts",
+    "start": "NODE_ENV=production node dist/index.js",
     "build": "tsc",
-    "start": "node dist/index.js",
     "test": "NODE_ENV=test vitest run",
     "test:watch": "NODE_ENV=test vitest",
+    "predeploy": "npm run build && npx prisma generate",
+    "deploy": "NODE_ENV=production npx serverless deploy",
+    "deploy:offline": "npm run build && npx serverless offline",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "predeploy": "npm run build && npx prisma generate",
-    "deploy": "npx serverless deploy",
-    "deploy:offline": "npm run build && npx serverless offline",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
-    "prisma:studio": "prisma studio"
+    "prisma:seed:prod": "NODE_ENV=production tsx prisma/seed.ts",
+    "prisma:studio": "prisma studio",
+    "prisma:push": "prisma db push",
+    "prisma:push:prod": "NODE_ENV=production npx prisma db push"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

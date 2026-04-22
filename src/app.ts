@@ -2,6 +2,7 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import path from 'path';
 import passport from 'passport';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
@@ -16,8 +17,17 @@ import notificationRoutes from './routes/notifications';
 import adminRoutes from './routes/admin';
 import chatRoutes from './routes/chat';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables based on NODE_ENV
+// Resolve from project root (one level up from dist/)
+const rootDir = path.resolve(__dirname, '..');
+const envFile = process.env.NODE_ENV === 'production'
+  ? '.env.production'
+  : process.env.NODE_ENV === 'test'
+    ? '.env.test'
+    : '.env.development';
+
+dotenv.config({ path: path.join(rootDir, envFile) });
+dotenv.config({ path: path.join(rootDir, '.env') }); // fallback
 
 const app: Application = express();
 
