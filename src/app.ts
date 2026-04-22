@@ -30,18 +30,21 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS — support multiple origins (localhost + tunnel domain)
+// CORS — support multiple origins via comma-separated FRONTEND_URL or env
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
+  ...(process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map(s => s.trim()),
   'http://localhost:5173',
   'http://localhost:3000',
 ].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (allowedOrigins.some(o => origin === o || origin.endsWith(o.replace('https://', '.').replace('http://', '.')))) {
+      return callback(null, true);
+    }
+    // In development, allow all
+    if (process.env.NODE_ENV !== 'production') return callback(null, true);
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
