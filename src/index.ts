@@ -2,6 +2,8 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import passport from 'passport';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger';
 import { startScheduler } from './jobs/scheduler';
 import { configurePassport } from './config/passport';
 import authRoutes from './routes/auth';
@@ -29,6 +31,41 @@ app.use(passport.initialize());
 // Configure Passport
 configurePassport();
 
+// Swagger API docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Wardaya Subs API Docs',
+}));
+
+// Serve raw OpenAPI spec as JSON
+app.get('/api-docs.json', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: API is running
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 message:
+ *                   type: string
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
 // Health check route
 app.get('/health', (req: Request, res: Response) => {
   res.json({ 
@@ -53,8 +90,9 @@ app.use((req: Request, res: Response) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV}`);
+  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`API Docs: http://localhost:${PORT}/api-docs`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
   startScheduler();
 });
 
