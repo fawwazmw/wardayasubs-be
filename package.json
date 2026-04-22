@@ -10,7 +10,7 @@
     "test": "NODE_ENV=test vitest run",
     "test:watch": "NODE_ENV=test vitest",
     "predeploy": "npm run build && npx prisma generate",
-    "deploy": "NODE_ENV=production npx serverless deploy",
+    "deploy": "cp .env.production .env && NODE_ENV=production npx serverless deploy && rm -f .env",
     "deploy:offline": "npm run build && npx serverless offline",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
