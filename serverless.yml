@@ -1,5 +1,7 @@
 service: wardayasubs-api
 
+useDotenv: true
+
 provider:
   name: aws
   runtime: nodejs20.x

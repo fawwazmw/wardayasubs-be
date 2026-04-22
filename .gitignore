@@ -1,8 +1,14 @@
 node_modules
 dist
-.env
 *.log
 .DS_Store
-.serverless
+
+# Environment files (contain secrets)
+.env
+.env.development
+.env.production
+.env.test
+!.env.example
+
 # Serverless Framework
 .serverless/
