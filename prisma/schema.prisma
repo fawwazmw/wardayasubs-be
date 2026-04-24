@@ -121,8 +121,21 @@ model Subscription {
   website         String?
   logo            String?
   isActive        Boolean   @default(true)
-  reminderDays    Int       @default(3) // Days before billing to send reminder
+  reminderDays    Int       @default(3)
   notes           String?
+
+  // Free Trial Tracking
+  isTrial         Boolean   @default(false)
+  trialEndsAt     DateTime?
+
+  // Subscription Sharing / Split
+  isShared        Boolean   @default(false)
+  totalMembers    Int       @default(1)  // total people sharing (including user)
+  userShare       Float?                 // user's portion of the cost (auto-calculated if null)
+
+  // Subscription Score
+  usageRating     Int?                   // 1-5 self-rated usage frequency
+
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   payments        Payment[]
@@ -133,6 +146,7 @@ model Subscription {
   @@index([nextBillingDate])
   @@index([categoryId])
   @@index([isActive])
+  @@index([isTrial])
 }
 
 model Payment {

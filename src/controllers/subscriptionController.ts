@@ -16,6 +16,12 @@ const createSubscriptionSchema = z.object({
   logo: z.string().url().optional(),
   reminderDays: z.number().int().min(0).default(3),
   notes: z.string().optional(),
+  isTrial: z.boolean().optional(),
+  trialEndsAt: z.string().datetime().optional(),
+  isShared: z.boolean().optional(),
+  totalMembers: z.number().int().min(1).optional(),
+  userShare: z.number().positive().optional(),
+  usageRating: z.number().int().min(1).max(5).optional(),
 });
 
 const updateSubscriptionSchema = createSubscriptionSchema.partial().extend({
@@ -61,6 +67,9 @@ export const createSubscription = async (
           ? new Date(validatedData.startDate)
           : new Date(),
         nextBillingDate: new Date(validatedData.nextBillingDate),
+        ...(validatedData.trialEndsAt && {
+          trialEndsAt: new Date(validatedData.trialEndsAt),
+        }),
         userId,
       },
       include: {
@@ -203,6 +212,9 @@ export const updateSubscription = async (
         }),
         ...(validatedData.nextBillingDate && {
           nextBillingDate: new Date(validatedData.nextBillingDate),
+        }),
+        ...(validatedData.trialEndsAt && {
+          trialEndsAt: new Date(validatedData.trialEndsAt),
         }),
       },
       include: {

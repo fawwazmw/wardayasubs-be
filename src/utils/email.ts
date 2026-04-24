@@ -1,14 +1,24 @@
 import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+function createTransporter() {
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!user || !pass) return null;
+
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: { user, pass },
+  });
+}
+
+let transporter: nodemailer.Transporter | null = null;
+function getTransporter() {
+  if (!transporter) transporter = createTransporter();
+  return transporter;
+}
 
 const FROM = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@wardayasubs.com';
 
@@ -17,12 +27,12 @@ function isEmailConfigured(): boolean {
 }
 
 export async function sendVerificationEmail(to: string, verifyUrl: string): Promise<void> {
-  if (!isEmailConfigured()) {
-    console.log(`📧 [Email not configured] Email verification for ${to}:\n   ${verifyUrl}`);
+  if (!isEmailConfigured() || !getTransporter()) {
+    console.log(`[Email not configured] Verification for ${to}: ${verifyUrl}`);
     return;
   }
 
-  await transporter.sendMail({
+  await getTransporter()!.sendMail({
     from: `"wardayasubs" <${FROM}>`,
     to,
     subject: 'Verify your email - wardayasubs',
@@ -44,12 +54,12 @@ export async function sendVerificationEmail(to: string, verifyUrl: string): Prom
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
-  if (!isEmailConfigured()) {
-    console.log(`📧 [Email not configured] Password reset for ${to}:\n   ${resetUrl}`);
+  if (!isEmailConfigured() || !getTransporter()) {
+    console.log(`[Email not configured] Password reset for ${to}: ${resetUrl}`);
     return;
   }
 
-  await transporter.sendMail({
+  await getTransporter()!.sendMail({
     from: `"wardayasubs" <${FROM}>`,
     to,
     subject: 'Reset your password - wardayasubs',
@@ -91,7 +101,12 @@ export async function sendRenewalReminderEmail(
     `;
   }).join('');
 
-  await transporter.sendMail({
+  if (!getTransporter()) {
+    console.log(`[Email not configured] Renewal reminder for ${to}: ${reminders.length} upcoming`);
+    return;
+  }
+
+  await getTransporter()!.sendMail({
     from: `"wardayasubs" <${FROM}>`,
     to,
     subject: `Upcoming renewals - wardayasubs`,

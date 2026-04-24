@@ -151,17 +151,74 @@ async function generateReminders() {
   }
 }
 
+// Notifies users whose free trials are expiring within 3 days
+async function checkTrialExpirations() {
+  try {
+    const now = new Date();
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    const trialSubs = await prisma.subscription.findMany({
+      where: {
+        isTrial: true,
+        isActive: true,
+        trialEndsAt: {
+          gte: now,
+          lte: threeDaysFromNow,
+        },
+      },
+      include: { user: true },
+    });
+
+    let created = 0;
+    for (const sub of trialSubs) {
+      const daysLeft = Math.ceil(
+        (sub.trialEndsAt!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      const endDate = sub.trialEndsAt!.toISOString().split('T')[0];
+
+      // Check if we already sent a trial reminder for this subscription today
+      const existing = await prisma.notification.findFirst({
+        where: {
+          userId: sub.userId,
+          message: { contains: sub.name },
+          type: 'trial_expiry',
+          createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+        },
+      });
+
+      if (!existing) {
+        await prisma.notification.create({
+          data: {
+            userId: sub.userId,
+            type: 'trial_expiry',
+            message: `Your free trial for ${sub.name} ends in ${daysLeft} day(s)! Cancel before ${endDate} to avoid being charged.`,
+          },
+        });
+        created++;
+      }
+    }
+
+    if (created > 0) {
+      console.log(`⏳ Created ${created} trial expiry reminder(s)`);
+    }
+  } catch (error) {
+    console.error('Scheduler error (trial expirations):', error);
+  }
+}
+
 export function startScheduler() {
   // Run daily at 00:05
   cron.schedule('5 0 * * *', () => {
     console.log('⏰ Running daily jobs...');
     advanceBillingDates();
     generateReminders();
+    checkTrialExpirations();
   });
 
   // Also run once on startup to catch up
   advanceBillingDates();
   generateReminders();
+  checkTrialExpirations();
 
-  console.log('📆 Scheduler started - billing dates and reminders run daily');
+  console.log('📆 Scheduler started - billing dates, reminders, and trial checks run daily');
 }

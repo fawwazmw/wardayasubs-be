@@ -68,6 +68,12 @@ export async function createTestSubscription(userId: string, options: {
   billingCycle?: string;
   categoryId?: string;
   isActive?: boolean;
+  isTrial?: boolean;
+  trialEndsAt?: Date;
+  isShared?: boolean;
+  totalMembers?: number;
+  userShare?: number;
+  usageRating?: number;
 } = {}) {
   const nextMonth = new Date();
   nextMonth.setMonth(nextMonth.getMonth() + 1);
@@ -81,6 +87,12 @@ export async function createTestSubscription(userId: string, options: {
       nextBillingDate: nextMonth,
       categoryId: options.categoryId,
       isActive: options.isActive ?? true,
+      isTrial: options.isTrial ?? false,
+      trialEndsAt: options.trialEndsAt,
+      isShared: options.isShared ?? false,
+      totalMembers: options.totalMembers ?? 1,
+      userShare: options.userShare,
+      usageRating: options.usageRating,
       userId,
     },
     include: { category: true },
