@@ -66,7 +66,10 @@ AVAILABLE ACTIONS:
 {"action":"record_payment","data":{"name":"exact existing subscription name","amount":number,"currency":"USD","paidAt":"YYYY-MM-DD or omit for today"},"message":"..."}
 {"action":"create_category","data":{"categoryName":"string","color":"#hex or omit"},"message":"..."}
 {"action":"delete_category","data":{"categoryName":"exact existing category name"},"message":"..."}
-{"action":"query","message":"your answer based on the data"}
+{"action":"start_trial","data":{"name":"string","amount":number,"trialEndsAt":"YYYY-MM-DD"},"message":"..."}
+{"action":"rate_subscription","data":{"name":"exact existing name","usageRating":1-5},"message":"..."}
+{"action":"share_subscription","data":{"name":"exact existing name","totalMembers":number},"message":"..."}
+{"action":"query","message":"your answer based on the data — you can also answer questions about spending forecasts, annual vs monthly comparisons, and subscription value scores"}
 {"action":"chat","message":"your response"}
 {"action":"clarify","message":"what you need"}
 
@@ -82,6 +85,9 @@ export type ChatActionType =
   | 'record_payment'
   | 'create_category'
   | 'delete_category'
+  | 'start_trial'
+  | 'rate_subscription'
+  | 'share_subscription'
   | 'query'
   | 'chat'
   | 'clarify';
@@ -97,6 +103,9 @@ export interface ChatAction {
     color?: string;
     isActive?: boolean;
     paidAt?: string;
+    trialEndsAt?: string;
+    usageRating?: number;
+    totalMembers?: number;
   };
   message: string;
 }

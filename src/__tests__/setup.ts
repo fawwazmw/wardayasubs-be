@@ -1,4 +1,12 @@
 import { beforeAll, afterAll, beforeEach } from 'vitest';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load env before Prisma connects
+const rootDir = path.resolve(__dirname, '../..');
+dotenv.config({ path: path.join(rootDir, '.env.test') });
+dotenv.config({ path: path.join(rootDir, '.env.development') });
+
 import prisma from '../lib/prisma';
 
 async function cleanDatabase() {

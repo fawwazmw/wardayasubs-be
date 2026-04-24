@@ -13,13 +13,13 @@
     "deploy": "cp .env.production .env && NODE_ENV=production npx serverless deploy && rm -f .env",
     "deploy:offline": "npm run build && npx serverless offline",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:migrate": "cp .env.development .env && prisma migrate dev && rm -f .env",
+    "prisma:migrate:deploy": "cp .env.production .env && prisma migrate deploy && rm -f .env",
+    "prisma:seed": "NODE_ENV=development tsx prisma/seed.ts",
     "prisma:seed:prod": "NODE_ENV=production tsx prisma/seed.ts",
-    "prisma:studio": "prisma studio",
-    "prisma:push": "prisma db push",
-    "prisma:push:prod": "NODE_ENV=production npx prisma db push"
+    "prisma:studio": "cp .env.development .env && prisma studio",
+    "prisma:push": "cp .env.development .env && prisma db push && rm -f .env",
+    "prisma:push:prod": "cp .env.production .env && prisma db push && rm -f .env"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

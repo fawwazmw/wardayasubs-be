@@ -139,6 +139,67 @@ async function executeSingleAction(userId: string, act: ChatAction): Promise<Act
       return { action: 'delete_category', message: act.message, deletedName: cat.name };
     }
 
+    case 'start_trial': {
+      if (!act.data?.name) return null;
+      const existing = await findSubscription(userId, act.data.name);
+      if (existing) {
+        return { action: 'chat', message: `Subscription "${existing.name}" already exists. Use update instead.` };
+      }
+      const trialEnd = act.data.trialEndsAt ? new Date(act.data.trialEndsAt) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+      const nextBilling = new Date(trialEnd);
+      nextBilling.setDate(nextBilling.getDate() + 1);
+      const subscription = await prisma.subscription.create({
+        data: {
+          name: act.data.name,
+          amount: act.data.amount || 0,
+          currency: act.data.currency || 'USD',
+          billingCycle: act.data.billingCycle || 'monthly',
+          nextBillingDate: nextBilling,
+          isActive: true,
+          isTrial: true,
+          trialEndsAt: trialEnd,
+          reminderDays: 3,
+          userId,
+        },
+        include: { category: true },
+      });
+      return { action: 'start_trial', message: act.message, subscription };
+    }
+
+    case 'rate_subscription': {
+      if (!act.data?.name) return null;
+      const sub = await findSubscription(userId, act.data.name);
+      if (!sub) return { action: 'chat', message: `Couldn't find subscription "${act.data.name}".` };
+      const rating = act.data.usageRating;
+      if (!rating || rating < 1 || rating > 5) {
+        return { action: 'chat', message: 'Usage rating must be between 1 and 5.' };
+      }
+      const subscription = await prisma.subscription.update({
+        where: { id: sub.id },
+        data: { usageRating: rating },
+        include: { category: true },
+      });
+      return { action: 'rate_subscription', message: act.message, subscription };
+    }
+
+    case 'share_subscription': {
+      if (!act.data?.name) return null;
+      const sub = await findSubscription(userId, act.data.name);
+      if (!sub) return { action: 'chat', message: `Couldn't find subscription "${act.data.name}".` };
+      const totalMembers = act.data.totalMembers || 2;
+      const userShare = Math.round((sub.amount / totalMembers) * 100) / 100;
+      const subscription = await prisma.subscription.update({
+        where: { id: sub.id },
+        data: {
+          isShared: true,
+          totalMembers,
+          userShare,
+        },
+        include: { category: true },
+      });
+      return { action: 'share_subscription', message: act.message, subscription };
+    }
+
     default:
       return null;
   }
