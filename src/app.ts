@@ -32,58 +32,70 @@ dotenv.config({ path: path.join(rootDir, '.env') }); // fallback
 
 const app: Application = express();
 
-// Trust proxy (needed behind Cloudflare tunnel / nginx / load balancer)
-app.set('trust proxy', 1);
+// Trust proxy (only in production behind Cloudflare tunnel / nginx / load balancer)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
 
 // Security headers
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS — support multiple origins via comma-separated FRONTEND_URL or env
-const allowedOrigins = [
-  ...(process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map(s => s.trim()),
-  'http://localhost:5173',
-  'http://localhost:3000',
-].filter(Boolean);
+// CORS — strict allowlist
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+// Always allow localhost in development
+if (process.env.NODE_ENV !== 'production') {
+  if (!allowedOrigins.includes('http://localhost:5173')) allowedOrigins.push('http://localhost:5173');
+  if (!allowedOrigins.includes('http://localhost:3000')) allowedOrigins.push('http://localhost:3000');
+}
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.some(o => origin === o || origin.endsWith(o.replace('https://', '.').replace('http://', '.')))) {
-      return callback(null, true);
-    }
-    // In development, allow all
-    if (process.env.NODE_ENV !== 'production') return callback(null, true);
-    callback(new Error(`CORS: origin ${origin} not allowed`));
+    if (!origin) return callback(null, true); // Allow non-browser requests
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
 }));
 
 // Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Passport
 app.use(passport.initialize());
 configurePassport();
 
 // Global rate limiter for all API routes
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.DISABLE_RATE_LIMIT !== 'true') {
   app.use('/api', globalLimiter);
 }
 
-// Swagger API docs
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'Wardaya Subs API Docs',
-}));
+// Swagger API docs (only in non-production)
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Wardaya Subs API Docs',
+  }));
 
-app.get('/api-docs.json', (req: Request, res: Response) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerSpec);
-});
+  app.get('/api-docs.json', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
+}
 
 /**
  * @swagger

@@ -102,7 +102,8 @@ export const getSystemStats = async (req: AuthRequest, res: Response): Promise<v
 export const getAllUsers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { page = '1', limit = '20', search = '' } = req.query;
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const limitNum = Math.min(parseInt(limit as string) || 20, 100);
+    const skip = (parseInt(page as string) - 1) * limitNum;
 
     const where = search
       ? {
@@ -117,7 +118,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response): Promise<void
       prisma.user.findMany({
         where,
         skip,
-        take: parseInt(limit as string),
+        take: limitNum,
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
@@ -142,9 +143,9 @@ export const getAllUsers = async (req: AuthRequest, res: Response): Promise<void
       users,
       pagination: {
         page: parseInt(page as string),
-        limit: parseInt(limit as string),
+        limit: limitNum,
         total,
-        pages: Math.ceil(total / parseInt(limit as string)),
+        pages: Math.ceil(total / limitNum),
       },
     });
   } catch (error) {
@@ -158,6 +159,12 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
   try {
     const { id } = req.params;
     const currentUserId = req.user?.userId;
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      res.status(400).json({ error: 'Invalid user ID format' });
+      return;
+    }
 
     if (id === currentUserId) {
       res.status(400).json({ error: 'Cannot delete your own account' });

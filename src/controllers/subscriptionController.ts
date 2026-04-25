@@ -3,6 +3,13 @@ import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
+function sanitizeSubscription(sub: any) {
+  const { userId, ...rest } = sub;
+  return rest;
+}
+
+const isValidUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
 const createSubscriptionSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
@@ -77,7 +84,7 @@ export const createSubscription = async (
       },
     });
 
-    res.status(201).json(subscription);
+    res.status(201).json(sanitizeSubscription(subscription));
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Validation error', details: error.errors });
@@ -101,6 +108,11 @@ export const getSubscriptions = async (
 
     const { isActive, categoryId } = req.query;
 
+    if (categoryId && !isValidUUID(categoryId as string)) {
+      res.status(400).json({ error: 'Invalid categoryId format' });
+      return;
+    }
+
     const subscriptions = await prisma.subscription.findMany({
       where: {
         userId,
@@ -115,7 +127,7 @@ export const getSubscriptions = async (
       },
     });
 
-    res.json(subscriptions);
+    res.json(subscriptions.map(sanitizeSubscription));
   } catch (error) {
     console.error('Get subscriptions error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -156,7 +168,7 @@ export const getSubscription = async (
       return;
     }
 
-    res.json(subscription);
+    res.json(sanitizeSubscription(subscription));
   } catch (error) {
     console.error('Get subscription error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -222,7 +234,7 @@ export const updateSubscription = async (
       },
     });
 
-    res.json(subscription);
+    res.json(sanitizeSubscription(subscription));
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Validation error', details: error.errors });
@@ -501,7 +513,8 @@ export const importSubscriptions = async (
         });
         imported.push(created);
       } catch (err: any) {
-        errors.push(`Row ${i + 1} (${sub.name}): ${err.message}`);
+        console.error(`Import error row ${i + 1} (${sub.name}):`, err.message);
+        errors.push(`Row ${i + 1} (${sub.name}): Failed to import`);
       }
     }
 
@@ -652,7 +665,8 @@ export const importAllData = async (
           }
           categoryMap[cat.name] = category.id;
         } catch (err: any) {
-          errors.push(`Category ${cat.name}: ${err.message}`);
+          console.error(`Import category error (${cat.name}):`, err.message);
+          errors.push(`Category ${cat.name}: Failed to import`);
         }
       }
     }
@@ -682,7 +696,8 @@ export const importAllData = async (
         });
         importedSubs++;
       } catch (err: any) {
-        errors.push(`Subscription ${sub.name}: ${err.message}`);
+        console.error(`Import subscription error (${sub.name}):`, err.message);
+        errors.push(`Subscription ${sub.name}: Failed to import`);
       }
     }
 

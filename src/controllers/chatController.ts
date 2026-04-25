@@ -3,6 +3,10 @@ import { AuthRequest } from '../middleware/auth';
 import { processTextMessage, processImageMessage, ChatAction, ChatResult } from '../services/chatService';
 import prisma from '../lib/prisma';
 
+function sanitizeTitle(text: string): string {
+  return text.replace(/<[^>]*>/g, '').slice(0, 100);
+}
+
 // ===== Helpers =====
 
 async function resolveCategoryId(userId: string, categoryName?: string): Promise<string | undefined> {
@@ -230,7 +234,7 @@ async function handleResult(userId: string, result: ChatResult, res: Response): 
     return false;
   } catch (err: any) {
     console.error(`Failed to handle action:`, err.message);
-    res.json({ action: 'chat', message: `Something went wrong: ${err.message}. Please try manually.` });
+    res.json({ action: 'chat', message: 'Something went wrong. Please try again or do it manually.' });
     return true;
   }
 }
@@ -253,7 +257,7 @@ export const getSessions = async (req: AuthRequest, res: Response): Promise<void
 export const createSession = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const session = await prisma.chatSession.create({
-      data: { title: req.body.title || 'New Chat', userId: req.user!.userId },
+      data: { title: sanitizeTitle(req.body.title || 'New Chat'), userId: req.user!.userId },
     });
     res.status(201).json(session);
   } catch (err: any) {

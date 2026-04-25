@@ -124,7 +124,7 @@ router.post('/login', loginLimiter, login);
  *       400:
  *         description: Invalid or expired token
  */
-router.post('/verify-email', verifyEmail);
+router.post('/verify-email', authLimiter, verifyEmail);
 
 /**
  * @swagger
