@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { getSessions, createSession, getSession, deleteSession, sendMessage, sendImage } from '../controllers/chatController';
 import { authenticate } from '../middleware/auth';
+import { chatLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 const upload = multer({
@@ -149,7 +150,7 @@ router.delete('/sessions/:id', deleteSession);
  *       200:
  *         description: AI response
  */
-router.post('/sessions/:id/message', sendMessage);
+router.post('/sessions/:id/message', chatLimiter, sendMessage);
 
 /**
  * @swagger
@@ -183,6 +184,6 @@ router.post('/sessions/:id/message', sendMessage);
  *       200:
  *         description: AI response with extracted details
  */
-router.post('/sessions/:id/image', upload.single('image'), sendImage);
+router.post('/sessions/:id/image', chatLimiter, upload.single('image'), sendImage);
 
 export default router;

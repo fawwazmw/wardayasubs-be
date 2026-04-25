@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 const registerSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number'),
   name: z.string().min(2),
   currency: z.string().optional().default('USD'),
 });
@@ -76,7 +76,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     res.status(201).json({
       message: 'Account created. Please check your email to verify your account.',
-      verifyToken: process.env.NODE_ENV === 'development' ? verifyToken : undefined,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -178,7 +177,8 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    res.json(user);
+    const { googleId, ...rest } = user;
+    res.json({ ...rest, hasGoogleLinked: !!googleId });
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -235,7 +235,8 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
       },
     });
 
-    res.json(updatedUser);
+    const { googleId, ...rest } = updatedUser;
+    res.json({ ...rest, hasGoogleLinked: !!googleId });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Validation error', details: error.errors });
@@ -278,7 +279,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     // Send email (falls back to console.log if SMTP not configured)
     await sendPasswordResetEmail(email, resetUrl);
 
-    res.json({ message: 'If an account with that email exists, a reset link has been sent.', resetToken: process.env.NODE_ENV === 'development' ? token : undefined });
+    res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Validation error', details: error.errors });
@@ -425,7 +426,7 @@ export const googleCallback = async (req: Request, res: Response): Promise<void>
       email: user.email,
     });
 
-    res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+    res.redirect(`${frontendUrl}/auth/callback#token=${token}`);
   } catch (error) {
     console.error('[OAuth] Google callback error:', error);
     res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=server_error`);

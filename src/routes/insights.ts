@@ -6,6 +6,7 @@ import {
   getCurrencyConversion,
 } from '../controllers/insightsController';
 import { authenticate } from '../middleware/auth';
+import { insightsLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -141,7 +142,7 @@ router.get('/comparison', getComparison);
  *                             description:
  *                               type: string
  */
-router.get('/score', getScore);
+router.get('/score', insightsLimiter, getScore);
 
 /**
  * @swagger

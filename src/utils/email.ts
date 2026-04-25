@@ -28,7 +28,7 @@ function isEmailConfigured(): boolean {
 
 export async function sendVerificationEmail(to: string, verifyUrl: string): Promise<void> {
   if (!isEmailConfigured() || !getTransporter()) {
-    console.log(`[Email not configured] Verification for ${to}: ${verifyUrl}`);
+    console.log(`[Email not configured] Verification email would be sent to ${to}`);
     return;
   }
 
@@ -55,7 +55,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string): Prom
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
   if (!isEmailConfigured() || !getTransporter()) {
-    console.log(`[Email not configured] Password reset for ${to}: ${resetUrl}`);
+    console.log(`[Email not configured] Password reset email would be sent to ${to}`);
     return;
   }
 

@@ -22,10 +22,6 @@ export function errorHandler(err: Error, req: Request, res: Response, _next: Nex
     return res.status(400).json({ error: 'Invalid JSON in request body.' });
   }
 
-  // Default 500
-  res.status(500).json({
-    error: process.env.NODE_ENV === 'production'
-      ? 'Internal server error'
-      : err.message || 'Internal server error',
-  });
+  // Default 500 — always return generic message to client
+  res.status(500).json({ error: 'Internal server error' });
 }

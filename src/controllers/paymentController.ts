@@ -3,6 +3,8 @@ import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
+const isValidUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
 const createPaymentSchema = z.object({
   amount: z.number().positive(),
   currency: z.string().default('USD'),
@@ -17,6 +19,11 @@ export const getPayments = async (req: AuthRequest, res: Response): Promise<void
     if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
 
     const { subscriptionId } = req.query;
+
+    if (subscriptionId && !isValidUUID(subscriptionId as string)) {
+      res.status(400).json({ error: 'Invalid subscriptionId format' });
+      return;
+    }
 
     const payments = await prisma.payment.findMany({
       where: {

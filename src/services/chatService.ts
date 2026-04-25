@@ -124,6 +124,10 @@ async function getSessionHistory(sessionId: string): Promise<{ role: string; con
   return messages;
 }
 
+function sanitizeTitle(text: string): string {
+  return text.replace(/<[^>]*>/g, '').slice(0, 100);
+}
+
 async function saveMessage(sessionId: string, role: string, content: string, action?: string) {
   await prisma.chatMessage.create({
     data: { role, content, action, sessionId },
@@ -131,7 +135,7 @@ async function saveMessage(sessionId: string, role: string, content: string, act
   if (role === 'user') {
     const session = await prisma.chatSession.findUnique({ where: { id: sessionId } });
     if (session && session.title === 'New Chat') {
-      const title = content.length > 50 ? content.slice(0, 50) + '...' : content;
+      const title = sanitizeTitle(content.length > 50 ? content.slice(0, 50) + '...' : content);
       await prisma.chatSession.update({ where: { id: sessionId }, data: { title } });
     }
   }
@@ -149,6 +153,8 @@ async function saveResultMessages(sessionId: string, result: ChatResult) {
 
 // ===== Context Builders =====
 
+// PRIVACY NOTE: This function sends user subscription data to external AI providers
+// (Groq/Gemini). The frontend should display a notice to users about this.
 async function getFullContext(userId: string): Promise<string> {
   const [subscriptions, categories, recentPayments] = await Promise.all([
     prisma.subscription.findMany({
@@ -259,6 +265,11 @@ export async function processTextMessage(userId: string, sessionId: string, mess
   const fullSystemPrompt = SYSTEM_PROMPT + userContext;
   const history = await getSessionHistory(sessionId);
   const provider = getProvider();
+
+  // Privacy: log when user data is sent to AI provider (first message per session)
+  if (history.length === 0) {
+    console.log(`[Privacy] User ${userId} chat data sent to ${provider} AI provider`);
+  }
 
   await saveMessage(sessionId, 'user', message);
 

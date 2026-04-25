@@ -21,7 +21,7 @@ export async function createTestUser(options: TestUserOptions = {}) {
   const {
     email = `test-${Date.now()}@example.com`,
     name = 'Test User',
-    password = 'password123',
+    password = 'Password123',
     emailVerified = true,
     isAdmin = false,
     currency = 'USD',

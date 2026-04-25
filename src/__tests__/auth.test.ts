@@ -7,7 +7,7 @@ describe('Auth Endpoints', () => {
     it('should register a new user', async () => {
       const res = await request.post('/api/auth/register').send({
         email: 'newuser@example.com',
-        password: 'password123',
+        password: 'Password123',
         name: 'New User',
       });
 
@@ -20,7 +20,7 @@ describe('Auth Endpoints', () => {
 
       const res = await request.post('/api/auth/register').send({
         email: 'dup@example.com',
-        password: 'password123',
+        password: 'Password123',
         name: 'Dup User',
       });
 
@@ -67,7 +67,7 @@ describe('Auth Endpoints', () => {
 
       const res = await request.post('/api/auth/login').send({
         email: 'wrongpw@example.com',
-        password: 'wrongpassword',
+        password: 'WrongPassword1',
       });
 
       expect(res.status).toBe(401);
@@ -76,7 +76,7 @@ describe('Auth Endpoints', () => {
     it('should reject non-existent user', async () => {
       const res = await request.post('/api/auth/login').send({
         email: 'noone@example.com',
-        password: 'password123',
+        password: 'Password123',
       });
 
       expect(res.status).toBe(401);
@@ -149,14 +149,14 @@ describe('Auth Endpoints', () => {
       const res = await request
         .put('/api/auth/profile')
         .set('Authorization', `Bearer ${token}`)
-        .send({ currentPassword: plainPassword, newPassword: 'newpassword123' });
+        .send({ currentPassword: plainPassword, newPassword: 'NewPassword123' });
 
       expect(res.status).toBe(200);
 
       // Verify new password works
       const loginRes = await request.post('/api/auth/login').send({
         email: 'changepw@example.com',
-        password: 'newpassword123',
+        password: 'NewPassword123',
       });
       expect(loginRes.status).toBe(200);
     });
@@ -167,7 +167,7 @@ describe('Auth Endpoints', () => {
       const res = await request
         .put('/api/auth/profile')
         .set('Authorization', `Bearer ${token}`)
-        .send({ currentPassword: 'wrongpassword', newPassword: 'newpassword123' });
+        .send({ currentPassword: 'WrongPassword1', newPassword: 'NewPassword123' });
 
       expect(res.status).toBe(400);
     });
